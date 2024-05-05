@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
+using System.Diagnostics;
+using System.Data.SqlTypes;
 
 namespace EightQuinsProblem
 {
@@ -10,12 +13,290 @@ namespace EightQuinsProblem
     {
         static void Main(string[] args)
         {
-            EightQueenProblem problem = new EightQueenProblem();
-            problem.Solution();
-            problem.DisplaySolutions();
+            //using Stopwatch() to measure the speed of using cycle vs recursion
+            var timerCycle = new Stopwatch();
+            timerCycle.Start();
+
+            EightQueenProblemCycle usingCycles = new EightQueenProblemCycle();
+            usingCycles.Solution();
+            usingCycles.DisplaySolutions();
+
+            timerCycle.Stop();
+            TimeSpan timeTakenCycle = timerCycle.Elapsed;
+            Console.WriteLine($"Time taken by using CYCLE: {timeTakenCycle.ToString(@"m\:ss\.ffff")}");
+
+
+
+            var timeRecursion = new Stopwatch();
+            timeRecursion.Start();
+
+            EightQueenProblemRecursive usingRecursion = new EightQueenProblemRecursive();
+            usingRecursion.Solution();
+            usingRecursion.DisplaySolution();
+
+            timeRecursion.Stop();
+            TimeSpan timeTakenRecursion = timerCycle.Elapsed;
+            Console.WriteLine($"Time take by using RECURSION: {timeTakenRecursion.ToString(@"m\:ss\.ffff")}");
         }
     }
-    class EightQueenProblem
+
+    class EightQueenProblemRecursive
+    {
+        private int _currentRow = 0;
+        private int _currentCol = 0;
+        private char[,] _chessboard = new char[8, 8];
+        private List<char[,]> _solutionsList = new List<char[,]>();
+
+        public EightQueenProblemRecursive()
+        {
+            initializeChessboard();
+        }
+
+        public void Solution()
+        {
+            AddQueen();
+            if (_currentRow < 0)
+                return;
+
+            AddQueenAttack();
+
+            _currentRow++;
+            if (_currentRow >= 8)
+            {
+                AddCombination();
+            }
+
+            _currentCol = 0;
+
+            Solution();
+        }
+        private void AddQueen()
+        {
+            //this will run when there are no free spaces on that row
+            if(_currentCol >= 8)
+            {
+                //get rid of the 'u's on _currentRow
+                _currentCol = 0;
+  
+                RemoveItemFromRow('u', '-');
+
+                _currentRow--;
+
+                //this will run when the program is over
+                if (_currentRow < 0)
+                {
+                    return;
+                }
+
+                //get rid of the 'Q' and set her as 'u'
+                _currentCol = 0;
+                RemoveItemFromRow('Q', 'u');
+
+                RemoveItemFromBoard('-', '*');
+
+                if (_currentRow != 0)
+                {
+                    ResetBoard();
+                }
+                else
+                {
+                    _currentCol = 0;
+                }
+
+                AddQueen();
+                return;
+            }
+
+            if (_chessboard[_currentRow,_currentCol] == '*')
+            {
+                _chessboard[_currentRow, _currentCol] = 'Q';
+            }
+            else
+            {
+                _currentCol++;
+                AddQueen();
+            }
+        }
+        private void AddQueenAttack()
+        {
+            CardinalDirectionAttack();
+            LeftRightDAttack();
+            RightLeftDAttack();
+        }
+        private void CardinalDirectionAttack(int k = 0)
+        {
+            //up-down
+            if (_chessboard[_currentRow, k] == '*') 
+                _chessboard[_currentRow, k] = '-';
+
+            //left-right
+            if (_chessboard[k, _currentCol] == '*') 
+                _chessboard[k, _currentCol] = '-';
+
+            k++;
+            if (k >= 8)
+                return;
+
+            CardinalDirectionAttack(k);
+        }
+        private void LeftRightDAttack(int k = 0)
+        {
+            int attackRow = _currentRow - _currentCol + k;
+            int attackCol = _currentCol - _currentRow + k;
+            if (_currentRow - _currentCol < 0)
+            {
+                attackRow = 0 + k;
+            }
+            if (_currentCol - _currentRow < 0)
+            {
+                attackCol = 0 + k;
+            }
+
+            if (_chessboard[attackRow, attackCol] == '*')
+                _chessboard[attackRow, attackCol] = '-';
+
+            k++;
+            if (attackRow >= 7 || attackCol >= 7)
+                return;
+
+
+            LeftRightDAttack(k);
+        }
+        private void RightLeftDAttack(int k = 0)
+        {
+            int attackRow;
+            int attackCol = _currentCol + _currentRow - k;
+
+            if (_currentCol + _currentRow < 8)
+            {
+                attackRow = k;
+            }
+            else
+            {
+                attackRow = -(7 - _currentRow - _currentCol - k);
+                attackCol = 7 - k;
+            }
+
+            if (_chessboard[attackRow, attackCol] == '*')
+                _chessboard[attackRow, attackCol] = '-';
+
+            k++;
+            if (attackRow >= 7 || attackCol <= 0)
+                return;
+
+            RightLeftDAttack(k);
+        }
+        private void RemoveItemFromRow(char item, char newItem)
+        {
+            if (_currentCol >= 8)
+                return;
+
+            if (_chessboard[_currentRow, _currentCol] == item)
+            {
+                _chessboard[_currentRow, _currentCol] = newItem;
+            }
+
+            _currentCol++;
+            RemoveItemFromRow(item, newItem);
+        }
+        private void RemoveItemFromBoard(char item, char newItem, int row = 0, int col = 0)
+        {
+            if (_chessboard[row, col] == item)
+            {
+                _chessboard[row, col] = newItem;
+            }
+
+            col++;
+            if (col >= 8)
+            {
+                row++;
+                col = 0;
+            }
+            if (row >= 8)
+                return;
+
+            RemoveItemFromBoard(item, newItem, row, col);
+        }
+        private void AddCombination()
+        {
+            char[,] outputChessboard = (char[,])_chessboard.Clone();
+            _solutionsList.Add(outputChessboard);
+
+            //mark current Q as already used
+            _currentRow--;
+            _chessboard[_currentRow, _currentCol] = 'u';
+
+            RemoveItemFromBoard('-', '*');
+            ResetBoard();
+        }
+        private void ResetBoard(int row = 0, int col = 0)
+        {
+            if (_chessboard[row, col] == 'Q') 
+            {
+                _currentRow = row;
+                _currentCol = col;
+                AddQueenAttack();
+
+                row++;
+                col = -1;
+            }
+
+
+            col++;
+            if (col >= 8)
+            {
+                _currentRow++;
+                _currentCol = 0;
+                return;
+            }
+
+            ResetBoard(row,col);
+        }
+        private void initializeChessboard(int row = 0, int col = 0)
+        {
+            _chessboard[row, col] = '*';
+
+            col++;
+            if(col >= 8)
+            {
+                col = 0;
+                row++;
+                if (row >= 8)
+                {
+                    return;
+                }
+            }
+
+            initializeChessboard(row,col);
+        }
+        public void DisplaySolution()
+        {
+            // Set a variable to the Desktop path.
+            string docPath =
+              Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+            // Write the chessboard combinations to a new file named "EightQueensPuzzle.txt".
+            using (StreamWriter outputFile = new StreamWriter(Path.Combine(docPath, "RecursiveEightQueensPuzzle.txt")))
+            {
+                outputFile.WriteLine($"Number of solutions found: {_solutionsList.Count}");
+                foreach (char[,] chessboard in _solutionsList)
+                {
+                    outputFile.WriteLine();
+                    for (int i = 0; i < 8; i++)
+                    {
+                        for (int i2 = 0; i2 < 8; i2++)
+                        {
+                            outputFile.Write(chessboard[i, i2]);
+                        }
+                        outputFile.WriteLine();
+                    }
+                    outputFile.WriteLine();
+                }
+            }
+        }
+    }
+
+    class EightQueenProblemCycle
     {
         private int _currentRow = 0;
         private int _currentCol = 0;
@@ -40,7 +321,7 @@ namespace EightQuinsProblem
         }
         private void Placement()
         {
-            while(_chessboard[0,7] != 'Q')
+            while(_solutionsList.Count < 92)
             {
                 while(_currentRow != 8)
                 {
@@ -185,28 +466,10 @@ namespace EightQuinsProblem
 
             if (!hasPlacedQueen)
             {
-                // goes back a row and sets the 'Q' as 'u'
+                // goes back a row and clearn the current row
                 GetRidOfU();
                 _currentRow--;
-                for (int col = 0; col < 8; col++)
-                {
-                    if (_chessboard[_currentRow, col] == 'Q')
-                    {
-                        _chessboard[_currentRow, col] = 'u';
-                        break;
-                    }
-                }
-
-                ResetBoard();
-
-                bool qIsPlaced = AddQueen();
-
-                if (!qIsPlaced)
-                {
-                    GetRidOfU();
-                    _currentRow--;
-                    BackTrack();
-                }
+                BackTrack();
             }
         }
         private void GetRidOfU()
@@ -347,18 +610,27 @@ namespace EightQuinsProblem
         }
         public void DisplaySolutions()
         {
-            foreach (char[,] chessboard in _solutionsList)
+            // Set a variable to the Desktop path.
+            string docPath =
+              Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+
+            // Write the chessboard combinations to a new file named "EightQueensPuzzle.txt".
+            using (StreamWriter outputFile = new StreamWriter(Path.Combine(docPath, "CycleEightQueensPuzzle.txt")))
             {
-                Console.WriteLine(new String('~',12));
-                for (sbyte i = 0; i < 8; i++)
+                outputFile.WriteLine($"Number of solutions found: {_solutionsList.Count}");
+                foreach (char[,] chessboard in _solutionsList)
                 {
-                    for (sbyte i2 = 0; i2 < 8; i2++)
+                    outputFile.WriteLine();
+                    for (int i = 0; i < 8; i++)
                     {
-                        Console.Write(chessboard[i,i2]);
+                        for (int i2 = 0; i2 < 8; i2++)
+                        {
+                            outputFile.Write(chessboard[i, i2]);
+                        }
+                        outputFile.WriteLine();
                     }
-                    Console.WriteLine();
+                    outputFile.WriteLine();
                 }
-                Console.WriteLine(new String('~', 12));
             }
         }
     }
